@@ -1,10 +1,10 @@
 <?php
 
-namespace RoyVoetman\FlysystemGitlab\Tests;
+namespace InfernalMedia\FlysystemGitea\Tests;
 
 use PHPUnit\Framework\TestCase as BaseTestCase;
-use RoyVoetman\FlysystemGitlab\Client;
-use RoyVoetman\FlysystemGitlab\GitlabAdapter;
+use InfernalMedia\FlysystemGitea\Client;
+use InfernalMedia\FlysystemGitea\GiteaAdapter;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -22,19 +22,19 @@ abstract class TestCase extends BaseTestCase
     }
     
     /**
-     * @return \RoyVoetman\FlysystemGitlab\Client
+     * @return \InfernalMedia\FlysystemGitea\Client
      */
     protected function getClientInstance(): Client
     {
-        return new Client($this->config[ 'project-id' ], $this->config[ 'branch' ], $this->config[ 'base-url' ],
+        return new Client($this->config[ 'username' ], $this->config[ 'repository' ], $this->config[ 'branch' ], $this->config[ 'base-url' ],
             $this->config[ 'personal-access-token' ]);
     }
     
     /**
-     * @return \RoyVoetman\FlysystemGitlab\GitlabAdapter
+     * @return \InfernalMedia\FlysystemGitea\GiteaAdapter
      */
-    protected function getAdapterInstance(): GitlabAdapter
+    protected function getAdapterInstance(): GiteaAdapter
     {
-        return new GitlabAdapter($this->getClientInstance());
+        return new GiteaAdapter($this->getClientInstance());
     }
 }

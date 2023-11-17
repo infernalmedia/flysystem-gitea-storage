@@ -4,7 +4,7 @@ return [
     
     /*
     |--------------------------------------------------------------------------
-    | Flysystem Adapter for Gitlab configurations
+    | Flysystem Adapter for Gitea configurations
     |--------------------------------------------------------------------------
     |
     | These configurations will be used in all the the tests to bootstrap
@@ -15,22 +15,27 @@ return [
     /**
      * Personal access token
      *
-     * @see https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html#creating-a-personal-access-token
+     * @see https://docs.gitea.com/development/api-usage
      */
     'personal-access-token' => 'your-access-token',
     
     /**
-     * Project id of your repo
+     * Username or organization of your repo
      */
-    'project-id'            => 'your-project-id',
+    'username'            => 'your-org-name',
     
+    /**
+     * Repository
+     */
+    'repository'            => 'your-test-repo',
+
     /**
      * Branch that should be used
      */
-    'branch'                => 'master',
+    'branch'                => 'main',
     
     /**
-     * Base URL of Gitlab server you want to use
+     * Base URL of Gitea server you want to use
      */
-    'base-url'              => 'https://gitlab.com',
+    'base-url'              => 'https://gitea.com',
 ];

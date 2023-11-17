@@ -1,12 +1,12 @@
 {
-    "name": "royvoetman/flysystem-gitlab-storage",
-    "description": "Flysystem Adapter for the Gitlab Repository files API v4",
+    "name": "infernalmedia/flysystem-gitea-storage",
+    "description": "Flysystem Adapter for the Gitea Repository files API v1",
     "keywords": [
-        "royvoetman",
-        "flysystem-gitlab",
+        "infernalmedia",
+        "flysystem-gitea",
         "flysystem",
-        "gitlab",
-        "v4",
+        "gitea",
+        "v1",
         "api",
         "laravel-storage"
     ],
@@ -14,8 +14,8 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "Roy Voetman",
-            "email": "royvoetman@outlook.com",
+            "name": "Jean Lalande",
+            "email": "jean.lalande@infernal.media",
             "role": "Developer"
         }
     ],
@@ -30,15 +30,18 @@
     },
     "autoload": {
         "psr-4": {
-            "RoyVoetman\\FlysystemGitlab\\": "src/"
+            "InfernalMedia\\FlysystemGitea\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "RoyVoetman\\FlysystemGitlab\\Tests\\": "tests"
+            "InfernalMedia\\FlysystemGitea\\Tests\\": "tests"
         }
     },
     "config": {
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
     }
 }

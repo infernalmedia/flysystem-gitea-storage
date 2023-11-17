@@ -1,14 +1,14 @@
 <?php
 
-namespace RoyVoetman\FlysystemGitlab\Tests;
+namespace InfernalMedia\FlysystemGitea\Tests;
 
 use GuzzleHttp\Exception\ClientException;
-use RoyVoetman\FlysystemGitlab\Client;
+use InfernalMedia\FlysystemGitea\Client;
 
 class ClientTest extends TestCase
 {
     /**
-     * @var \RoyVoetman\FlysystemGitlab\Client
+     * @var \InfernalMedia\FlysystemGitea\Client
      */
     protected $client;
 
@@ -37,9 +37,9 @@ class ClientTest extends TestCase
     {
         $meta = $this->client->read('README.md');
 
-        $this->assertArrayHasKey('ref', $meta);
+        $this->assertArrayHasKey('sha', $meta);
         $this->assertArrayHasKey('size', $meta);
-        $this->assertArrayHasKey('lastCommitId', $meta);
+        $this->assertArrayHasKey('last_commit_sha', $meta);
     }
 
     /**
@@ -49,7 +49,7 @@ class ClientTest extends TestCase
     {
         $content = $this->client->readRaw('README.md');
 
-        $this->assertStringStartsWith('# Testing repo for `flysystem-gitlab`', $content);
+        $this->assertStringStartsWith('# Testing repo for `flysystem-gitea`', $content);
     }
 
     /**
@@ -60,10 +60,8 @@ class ClientTest extends TestCase
         $contents = $this->client->upload('testing.md', '# Testing create', 'Created file');
 
         $this->assertStringStartsWith('# Testing create', $this->client->readRaw('testing.md'));
-        $this->assertTrue($contents === [
-                'file_path' => 'testing.md',
-                'branch'    => $this->client->getBranch()
-            ]);
+        $this->assertEquals($contents["content"]["path"], 'testing.md');
+        $this->assertTrue(str_ends_with($contents["content"]["url"], "?ref=" . $this->client->getBranch()));
     }
 
     /**
@@ -74,10 +72,9 @@ class ClientTest extends TestCase
         $contents = $this->client->upload('testing.md', '# Testing update', 'Updated file', true);
 
         $this->assertStringStartsWith('# Testing update', $this->client->readRaw('testing.md'));
-        $this->assertTrue($contents === [
-                'file_path' => 'testing.md',
-                'branch'    => $this->client->getBranch()
-            ]);
+        
+        $this->assertEquals($contents["content"]["path"], 'testing.md');
+        $this->assertTrue(str_ends_with($contents["content"]["url"], "?ref=" . $this->client->getBranch()));
     }
 
     /**
@@ -97,17 +94,15 @@ class ClientTest extends TestCase
      */
     public function it_can_create_a_file_from_stream()
     {
-        $stream = fopen(__DIR__.'/assets/testing.txt', 'r+');
+        $stream = fopen(__DIR__ . '/assets/testing.txt', 'r+');
 
         $contents = $this->client->uploadStream('testing.txt', $stream, 'Created file');
 
         fclose($stream);
 
         $this->assertStringStartsWith('File for testing file streams', $this->client->readRaw('testing.txt'));
-        $this->assertTrue($contents === [
-                'file_path' => 'testing.txt',
-                'branch'    => $this->client->getBranch()
-            ]);
+        $this->assertEquals($contents["content"]["path"], 'testing.txt');
+        $this->assertTrue(str_ends_with($contents["content"]["url"], "?ref=" . $this->client->getBranch()));
 
         // Clean up
         $this->client->delete('testing.txt', 'Deleted file');
@@ -129,12 +124,11 @@ class ClientTest extends TestCase
     public function it_can_retrieve_a_file_tree()
     {
         $contents = $this->client->tree();
-    
+
         $content = $contents->current();
 
         $this->assertTrue(is_array($content));
-        $this->assertArrayHasKey('id', $content[0]);
-        $this->assertArrayHasKey('name', $content[0]);
+        $this->assertArrayHasKey('sha', $content[0]);
         $this->assertArrayHasKey('type', $content[0]);
         $this->assertArrayHasKey('path', $content[0]);
         $this->assertArrayHasKey('mode', $content[0]);
@@ -146,7 +140,7 @@ class ClientTest extends TestCase
     public function it_can_retrieve_a_file_tree_recursive()
     {
         $contents = $this->client->tree('/', true);
-    
+
         $content = $contents->current();
 
         $this->assertTrue(is_array($content));
@@ -158,12 +152,10 @@ class ClientTest extends TestCase
     public function it_can_retrieve_a_file_tree_of_a_subdirectory()
     {
         $contents = $this->client->tree('recursive', true);
-    
         $content = $contents->current();
 
         $this->assertTrue(is_array($content));
-        $this->assertArrayHasKey('id', $content[0]);
-        $this->assertArrayHasKey('name', $content[0]);
+        $this->assertArrayHasKey('sha', $content[0]);
         $this->assertArrayHasKey('type', $content[0]);
         $this->assertArrayHasKey('path', $content[0]);
         $this->assertArrayHasKey('mode', $content[0]);
@@ -184,9 +176,19 @@ class ClientTest extends TestCase
      */
     public function it_can_change_the_project_id()
     {
-        $this->client->setProjectId('12345678');
+        $this->client->setRepository('12345678');
 
-        $this->assertEquals($this->client->getProjectId(), '12345678');
+        $this->assertEquals($this->client->getRepository(), '12345678');
+    }
+
+    /**
+     * @test
+     */
+    public function it_can_change_the_username()
+    {
+        $this->client->setUsername('org_name');
+
+        $this->assertEquals($this->client->getUsername(), 'org_name');
     }
 
     /**

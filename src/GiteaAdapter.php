@@ -1,6 +1,6 @@
 <?php
 
-namespace RoyVoetman\FlysystemGitlab;
+namespace InfernalMedia\FlysystemGitea;
 
 use DateTime;
 use GuzzleHttp\Exception\ClientException;
@@ -26,17 +26,17 @@ use League\MimeTypeDetection\ExtensionMimeTypeDetector;
 use Throwable;
 
 /**
- * Class GitlabAdapter
+ * Class GiteaAdapter
  *
- * @package RoyVoetman\FlysystemGitlab
+ * @package InfernalMedia\FlysystemGitea
  */
-class GitlabAdapter implements FilesystemAdapter
+class GiteaAdapter implements FilesystemAdapter
 {
-    const UPLOADED_FILE_COMMIT_MESSAGE = 'Uploaded file via Gitlab API';
-    const DELETED_FILE_COMMIT_MESSAGE = 'Deleted file via Gitlab API';
+    const UPLOADED_FILE_COMMIT_MESSAGE = 'Uploaded file via Gitea API';
+    const DELETED_FILE_COMMIT_MESSAGE = 'Deleted file via Gitea API';
     
     /**
-     * @var \RoyVoetman\FlysystemGitlab\Client
+     * @var \InfernalMedia\FlysystemGitea\Client
      */
     protected Client $client;
     
@@ -51,9 +51,9 @@ class GitlabAdapter implements FilesystemAdapter
     protected ExtensionMimeTypeDetector $mimeTypeDetector;
     
     /**
-     * GitlabAdapter constructor.
+     * GiteaAdapter constructor.
      *
-     * @param  \RoyVoetman\FlysystemGitlab\Client  $client
+     * @param  \InfernalMedia\FlysystemGitea\Client  $client
      * @param  string  $prefix
      */
     public function __construct(Client $client, $prefix = '')
@@ -217,7 +217,7 @@ class GitlabAdapter implements FilesystemAdapter
      */
     public function setVisibility(string $path, $visibility): void
     {
-        throw new UnableToSetVisibility(get_class($this).' Gitlab API does not support visibility.');
+        throw new UnableToSetVisibility(get_class($this).' Gitea API does not support visibility.');
     }
     
     /**
@@ -228,7 +228,7 @@ class GitlabAdapter implements FilesystemAdapter
      */
     public function visibility(string $path): FileAttributes
     {
-        throw new UnableToSetVisibility(get_class($this).' Gitlab API does not support visibility.');
+        throw new UnableToSetVisibility(get_class($this).' Gitea API does not support visibility.');
     }
     
     /**
@@ -256,15 +256,21 @@ class GitlabAdapter implements FilesystemAdapter
      */
     public function lastModified(string $path): FileAttributes
     {
+        $meta = $this->client->read($this->prefixer->prefixPath($path));
+
+        if (empty($meta)) {
+            return new FileAttributes($path, null, null, null);
+        }
+
         try {
-            $response = $this->client->blame($this->prefixer->prefixPath($path));
+            $response = $this->client->blame($meta['last_commit_sha']);
             
             if (empty($response)) {
                 return new FileAttributes($path, null, null, null);
             }
-            
-            $lastModified = DateTime::createFromFormat("Y-m-d\TH:i:s.uO", $response[0]['commit']['committed_date']);
-            
+
+            $lastModified = DateTime::createFromFormat("Y-m-d\TH:i:sT", $response['created']);
+
             return new FileAttributes($path, null, null, $lastModified->getTimestamp());
         } catch (Throwable $e) {
             throw UnableToRetrieveMetadata::lastModified($path, $e->getMessage(), $e);
@@ -281,8 +287,8 @@ class GitlabAdapter implements FilesystemAdapter
     {
         try {
             $meta = $this->client->read($this->prefixer->prefixPath($path));
-        
-            return new FileAttributes($path, $meta['size'][0] ?? 0);
+
+            return new FileAttributes($path, $meta['size'] ?? 0);
         } catch (Throwable $e) {
             throw UnableToRetrieveMetadata::fileSize($path, $e->getMessage(), $e);
         }
@@ -299,14 +305,14 @@ class GitlabAdapter implements FilesystemAdapter
     {
         try {
             $tree = $this->client->tree($this->prefixer->prefixPath($path), $deep);
-            
+
             foreach ($tree as $folders) {
                 foreach ($folders as $item) {
                     $isDirectory = $item['type'] == 'tree';
         
                     yield $isDirectory ? new DirectoryAttributes($item['path'], null, null) : new FileAttributes(
                         $item['path'],
-                        $this->fileSize($item['path'])->fileSize(),
+                        $item["size"],
                         null,
                         $this->lastModified($item['path'])->lastModified(),
                         $this->mimeTypeDetector->detectMimeTypeFromPath($item['path'])
@@ -365,7 +371,7 @@ class GitlabAdapter implements FilesystemAdapter
     }
     
     /**
-     * @return \RoyVoetman\FlysystemGitlab\Client
+     * @return \InfernalMedia\FlysystemGitea\Client
      */
     public function getClient(): Client
     {
@@ -373,7 +379,7 @@ class GitlabAdapter implements FilesystemAdapter
     }
     
     /**
-     * @param  \RoyVoetman\FlysystemGitlab\Client  $client
+     * @param  \InfernalMedia\FlysystemGitea\Client  $client
      */
     public function setClient(Client $client)
     {

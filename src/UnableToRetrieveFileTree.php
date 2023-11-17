@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace RoyVoetman\FlysystemGitlab;
+namespace InfernalMedia\FlysystemGitea;
 
 use League\Flysystem\FilesystemOperationFailed;
 use RuntimeException;
@@ -10,7 +10,7 @@ use RuntimeException;
 /**
  * Class UnableToRetrieveFileTree
  *
- * @package RoyVoetman\FlysystemGitlab
+ * @package InfernalMedia\FlysystemGitea
  */
 final class UnableToRetrieveFileTree extends RuntimeException implements FilesystemOperationFailed
 {

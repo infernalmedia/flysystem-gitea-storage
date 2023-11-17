@@ -1,7 +1,9 @@
 <?php
 
-namespace RoyVoetman\FlysystemGitlab\Tests;
+namespace InfernalMedia\FlysystemGitea\Tests;
 
+use InfernalMedia\FlysystemGitea\Client;
+use InfernalMedia\FlysystemGitea\GiteaAdapter;
 use League\Flysystem\Config;
 use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemException;
@@ -13,15 +15,13 @@ use League\Flysystem\UnableToMoveFile;
 use League\Flysystem\UnableToReadFile;
 use League\Flysystem\UnableToSetVisibility;
 use League\Flysystem\UnableToWriteFile;
-use RoyVoetman\FlysystemGitlab\Client;
-use RoyVoetman\FlysystemGitlab\GitlabAdapter;
 
-class GitlabAdapterTest extends TestCase
+class GiteaAdapterTest extends TestCase
 {
     /**
-     * @var \RoyVoetman\FlysystemGitlab\GitlabAdapter
+     * @var \InfernalMedia\FlysystemGitea\GiteaAdapter
      */
-    protected GitlabAdapter $gitlabAdapter;
+    protected GiteaAdapter $GiteaAdapter;
     
     /**
      *
@@ -30,7 +30,7 @@ class GitlabAdapterTest extends TestCase
     {
         parent::setUp();
         
-        $this->gitlabAdapter = $this->getAdapterInstance();
+        $this->GiteaAdapter = $this->getAdapterInstance();
     }
     
     /**
@@ -38,7 +38,7 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_be_instantiated()
     {
-        $this->assertInstanceOf(GitlabAdapter::class, $this->getAdapterInstance());
+        $this->assertInstanceOf(GiteaAdapter::class, $this->getAdapterInstance());
     }
 
     /**
@@ -46,7 +46,7 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_retrieve_client_instance()
     {
-        $this->assertInstanceOf(Client::class, $this->gitlabAdapter->getClient());
+        $this->assertInstanceOf(Client::class, $this->GiteaAdapter->getClient());
     }
 
     /**
@@ -56,8 +56,8 @@ class GitlabAdapterTest extends TestCase
     {
         $this->setInvalidProjectId();
 
-        $this->assertEquals($this->gitlabAdapter->getClient()
-            ->getProjectId(), '123');
+        $this->assertEquals($this->GiteaAdapter->getClient()
+            ->getRepository(), '123');
     }
 
     /**
@@ -65,9 +65,9 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_read_a_file()
     {
-        $response = $this->gitlabAdapter->read('README.md');
+        $response = $this->GiteaAdapter->read('README.md');
 
-        $this->assertStringStartsWith('# Testing repo for `flysystem-gitlab`', $response);
+        $this->assertStringStartsWith('# Testing repo for `flysystem-gitea`', $response);
     }
 
     /**
@@ -75,10 +75,10 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_read_a_file_into_a_stream()
     {
-        $stream = $this->gitlabAdapter->readStream('README.md');
+        $stream = $this->GiteaAdapter->readStream('README.md');
 
         $this->assertIsResource($stream);
-        $this->assertEquals(stream_get_contents($stream, -1, 0), $this->gitlabAdapter->read('README.md'));
+        $this->assertEquals(stream_get_contents($stream, -1, 0), $this->GiteaAdapter->read('README.md'));
     }
 
     /**
@@ -90,7 +90,7 @@ class GitlabAdapterTest extends TestCase
 
         $this->expectException(UnableToReadFile::class);
 
-        $this->gitlabAdapter->read('README.md');
+        $this->GiteaAdapter->read('README.md');
     }
 
     /**
@@ -98,9 +98,9 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_determine_if_a_project_has_a_file()
     {
-        $this->assertTrue($this->gitlabAdapter->fileExists('/README.md'));
+        $this->assertTrue($this->GiteaAdapter->fileExists('/README.md'));
 
-        $this->assertFalse($this->gitlabAdapter->fileExists('/I_DONT_EXIST.md'));
+        $this->assertFalse($this->GiteaAdapter->fileExists('/I_DONT_EXIST.md'));
     }
 
     /**
@@ -112,7 +112,7 @@ class GitlabAdapterTest extends TestCase
 
         $this->expectException(UnableToCheckFileExistence::class);
 
-        $this->gitlabAdapter->fileExists('/README.md');
+        $this->GiteaAdapter->fileExists('/README.md');
     }
 
     /**
@@ -120,13 +120,13 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_delete_a_file()
     {
-        $this->gitlabAdapter->write('testing.md', '# Testing create', new Config());
+        $this->GiteaAdapter->write('testing.md', '# Testing create', new Config());
 
-        $this->assertTrue($this->gitlabAdapter->fileExists('/testing.md'));
+        $this->assertTrue($this->GiteaAdapter->fileExists('/testing.md'));
 
-        $this->gitlabAdapter->delete('/testing.md');
+        $this->GiteaAdapter->delete('/testing.md');
 
-        $this->assertFalse($this->gitlabAdapter->fileExists('/testing.md'));
+        $this->assertFalse($this->GiteaAdapter->fileExists('/testing.md'));
     }
 
     /**
@@ -138,7 +138,7 @@ class GitlabAdapterTest extends TestCase
 
         $this->expectException(UnableToDeleteFile::class);
 
-        $this->gitlabAdapter->delete('testing_renamed.md');
+        $this->GiteaAdapter->delete('testing_renamed.md');
     }
 
     /**
@@ -146,12 +146,12 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_write_a_new_file()
     {
-        $this->gitlabAdapter->write('testing.md', '# Testing create', new Config());
+        $this->GiteaAdapter->write('testing.md', '# Testing create', new Config());
 
-        $this->assertTrue($this->gitlabAdapter->fileExists('testing.md'));
-        $this->assertEquals($this->gitlabAdapter->read('testing.md'), '# Testing create');
+        $this->assertTrue($this->GiteaAdapter->fileExists('testing.md'));
+        $this->assertEquals($this->GiteaAdapter->read('testing.md'), '# Testing create');
 
-        $this->gitlabAdapter->delete('testing.md');
+        $this->GiteaAdapter->delete('testing.md');
     }
 
     /**
@@ -159,12 +159,12 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_automatically_creates_missing_directories()
     {
-        $this->gitlabAdapter->write('/folder/missing/testing.md', '# Testing create folders', new Config());
+        $this->GiteaAdapter->write('/folder/missing/testing.md', '# Testing create folders', new Config());
 
-        $this->assertTrue($this->gitlabAdapter->fileExists('/folder/missing/testing.md'));
-        $this->assertEquals($this->gitlabAdapter->read('/folder/missing/testing.md'), '# Testing create folders');
+        $this->assertTrue($this->GiteaAdapter->fileExists('/folder/missing/testing.md'));
+        $this->assertEquals($this->GiteaAdapter->read('/folder/missing/testing.md'), '# Testing create folders');
 
-        $this->gitlabAdapter->delete('/folder/missing/testing.md');
+        $this->GiteaAdapter->delete('/folder/missing/testing.md');
     }
 
     /**
@@ -176,7 +176,7 @@ class GitlabAdapterTest extends TestCase
 
         $this->expectException(UnableToWriteFile::class);
 
-        $this->gitlabAdapter->write('testing.md', '# Testing create', new Config());
+        $this->GiteaAdapter->write('testing.md', '# Testing create', new Config());
     }
 
     /**
@@ -185,13 +185,13 @@ class GitlabAdapterTest extends TestCase
     public function it_can_write_a_file_stream()
     {
         $stream = fopen(__DIR__.'/assets/testing.txt', 'r+');
-        $this->gitlabAdapter->writeStream('testing.txt', $stream, new Config());
+        $this->GiteaAdapter->writeStream('testing.txt', $stream, new Config());
         fclose($stream);
 
-        $this->assertTrue($this->gitlabAdapter->fileExists('testing.txt'));
-        $this->assertEquals($this->gitlabAdapter->read('testing.txt'), 'File for testing file streams');
+        $this->assertTrue($this->GiteaAdapter->fileExists('testing.txt'));
+        $this->assertEquals($this->GiteaAdapter->read('testing.txt'), 'File for testing file streams');
 
-        $this->gitlabAdapter->delete('testing.txt');
+        $this->GiteaAdapter->delete('testing.txt');
     }
 
     /**
@@ -204,7 +204,7 @@ class GitlabAdapterTest extends TestCase
         $this->expectException(UnableToWriteFile::class);
 
         $stream = fopen(__DIR__.'/assets/testing.txt', 'r+');
-        $this->gitlabAdapter->writeStream('testing.txt', $stream, new Config());
+        $this->GiteaAdapter->writeStream('testing.txt', $stream, new Config());
         fclose($stream);
     }
 
@@ -213,12 +213,12 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_override_a_file()
     {
-        $this->gitlabAdapter->write('testing.md', '# Testing create', new Config());
-        $this->gitlabAdapter->write('testing.md', '# Testing update', new Config());
+        $this->GiteaAdapter->write('testing.md', '# Testing create', new Config());
+        $this->GiteaAdapter->write('testing.md', '# Testing update', new Config());
 
-        $this->assertStringStartsWith($this->gitlabAdapter->read('testing.md'), '# Testing update');
+        $this->assertStringStartsWith($this->GiteaAdapter->read('testing.md'), '# Testing update');
 
-        $this->gitlabAdapter->delete('testing.md');
+        $this->GiteaAdapter->delete('testing.md');
     }
 
 
@@ -228,17 +228,17 @@ class GitlabAdapterTest extends TestCase
     public function it_can_override_with_a_file_stream()
     {
         $stream = fopen(__DIR__.'/assets/testing.txt', 'r+');
-        $this->gitlabAdapter->writeStream('testing.txt', $stream, new Config());
+        $this->GiteaAdapter->writeStream('testing.txt', $stream, new Config());
         fclose($stream);
 
         $stream = fopen(__DIR__.'/assets/testing-update.txt', 'r+');
-        $this->gitlabAdapter->writeStream('testing.txt', $stream, new Config());
+        $this->GiteaAdapter->writeStream('testing.txt', $stream, new Config());
         fclose($stream);
 
-        $this->assertTrue($this->gitlabAdapter->fileExists('testing.txt'));
-        $this->assertEquals($this->gitlabAdapter->read('testing.txt'), 'File for testing file streams!');
+        $this->assertTrue($this->GiteaAdapter->fileExists('testing.txt'));
+        $this->assertEquals($this->GiteaAdapter->read('testing.txt'), 'File for testing file streams!');
 
-        $this->gitlabAdapter->delete('testing.txt');
+        $this->GiteaAdapter->delete('testing.txt');
     }
 
     /**
@@ -246,16 +246,16 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_move_a_file()
     {
-        $this->gitlabAdapter->write('testing.md', '# Testing move', new Config());
+        $this->GiteaAdapter->write('testing.md', '# Testing move', new Config());
 
-        $this->gitlabAdapter->move('testing.md', 'testing_move.md', new Config());
+        $this->GiteaAdapter->move('testing.md', 'testing_move.md', new Config());
 
-        $this->assertFalse($this->gitlabAdapter->fileExists('testing.md'));
-        $this->assertTrue($this->gitlabAdapter->fileExists('testing_move.md'));
+        $this->assertFalse($this->GiteaAdapter->fileExists('testing.md'));
+        $this->assertTrue($this->GiteaAdapter->fileExists('testing_move.md'));
 
-        $this->assertEquals($this->gitlabAdapter->read('testing_move.md'), '# Testing move');
+        $this->assertEquals($this->GiteaAdapter->read('testing_move.md'), '# Testing move');
 
-        $this->gitlabAdapter->delete('testing_move.md');
+        $this->GiteaAdapter->delete('testing_move.md');
     }
 
     /**
@@ -267,7 +267,7 @@ class GitlabAdapterTest extends TestCase
 
         $this->expectException(UnableToMoveFile::class);
 
-        $this->gitlabAdapter->move('testing_move.md', 'testing.md', new Config());
+        $this->GiteaAdapter->move('testing_move.md', 'testing.md', new Config());
     }
 
     /**
@@ -275,18 +275,18 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_copy_a_file()
     {
-        $this->gitlabAdapter->write('testing.md', '# Testing copy', new Config());
+        $this->GiteaAdapter->write('testing.md', '# Testing copy', new Config());
 
-        $this->gitlabAdapter->copy('testing.md', 'testing_copy.md', new Config());
+        $this->GiteaAdapter->copy('testing.md', 'testing_copy.md', new Config());
 
-        $this->assertTrue($this->gitlabAdapter->fileExists('testing.md'));
-        $this->assertTrue($this->gitlabAdapter->fileExists('testing_copy.md'));
+        $this->assertTrue($this->GiteaAdapter->fileExists('testing.md'));
+        $this->assertTrue($this->GiteaAdapter->fileExists('testing_copy.md'));
 
-        $this->assertEquals($this->gitlabAdapter->read('testing.md'), '# Testing copy');
-        $this->assertEquals($this->gitlabAdapter->read('testing_copy.md'), '# Testing copy');
+        $this->assertEquals($this->GiteaAdapter->read('testing.md'), '# Testing copy');
+        $this->assertEquals($this->GiteaAdapter->read('testing_copy.md'), '# Testing copy');
 
-        $this->gitlabAdapter->delete('testing.md');
-        $this->gitlabAdapter->delete('testing_copy.md');
+        $this->GiteaAdapter->delete('testing.md');
+        $this->GiteaAdapter->delete('testing_copy.md');
     }
 
     /**
@@ -298,7 +298,7 @@ class GitlabAdapterTest extends TestCase
 
         $this->expectException(UnableToCopyFile::class);
 
-        $this->gitlabAdapter->copy('testing_copy.md', 'testing.md', new Config());
+        $this->GiteaAdapter->copy('testing_copy.md', 'testing.md', new Config());
     }
 
     /**
@@ -306,11 +306,11 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_create_a_directory()
     {
-        $this->gitlabAdapter->createDirectory('/testing', new Config());
+        $this->GiteaAdapter->createDirectory('/testing', new Config());
 
-        $this->assertTrue($this->gitlabAdapter->fileExists('/testing/.gitkeep'));
+        $this->assertTrue($this->GiteaAdapter->fileExists('/testing/.gitkeep'));
 
-        $this->gitlabAdapter->delete('/testing/.gitkeep');
+        $this->GiteaAdapter->delete('/testing/.gitkeep');
     }
 
     /**
@@ -318,7 +318,7 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_retrieve_a_list_of_contents_of_root()
     {
-        $list = $this->gitlabAdapter->listContents('/', false);
+        $list = $this->GiteaAdapter->listContents('/', false);
         $expectedPaths = [
             ['type' => 'dir', 'path' => 'recursive'],
             ['type' => 'file', 'path' => 'LICENSE'],
@@ -340,7 +340,7 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_retrieve_a_list_of_contents_of_root_recursive()
     {
-        $list = $this->gitlabAdapter->listContents('/', true);
+        $list = $this->GiteaAdapter->listContents('/', true);
         $expectedPaths = [
             ['type' => 'dir', 'path' => 'recursive'],
             ['type' => 'file', 'path' => 'LICENSE'],
@@ -363,7 +363,7 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_retrieve_a_list_of_contents_of_sub_folder()
     {
-        $list = $this->gitlabAdapter->listContents('/recursive', false);
+        $list = $this->GiteaAdapter->listContents('/recursive', false);
         $expectedPaths = [
             ['type' => 'file', 'path' => 'recursive/recursive.testing.md']
         ];
@@ -381,13 +381,13 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_delete_a_directory()
     {
-        $this->gitlabAdapter->createDirectory('/testing', new Config());
-        $this->gitlabAdapter->write('/testing/testing.md', 'Testing delete directory', new Config());
+        $this->GiteaAdapter->createDirectory('/testing', new Config());
+        $this->GiteaAdapter->write('/testing/testing.md', 'Testing delete directory', new Config());
 
-        $this->gitlabAdapter->deleteDirectory('/testing');
+        $this->GiteaAdapter->deleteDirectory('/testing');
 
-        $this->assertFalse($this->gitlabAdapter->fileExists('/testing/.gitkeep'));
-        $this->assertFalse($this->gitlabAdapter->fileExists('/testing/testing.md'));
+        $this->assertFalse($this->GiteaAdapter->fileExists('/testing/.gitkeep'));
+        $this->assertFalse($this->GiteaAdapter->fileExists('/testing/testing.md'));
     }
     
     /**
@@ -399,7 +399,7 @@ class GitlabAdapterTest extends TestCase
         
         $this->expectException(FilesystemException::class);
         
-        $this->gitlabAdapter->deleteDirectory('/testing');
+        $this->GiteaAdapter->deleteDirectory('/testing');
     }
     
     /**
@@ -407,10 +407,10 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_retrieve_size()
     {
-        $size = $this->gitlabAdapter->fileSize('README.md');
+        $size = $this->GiteaAdapter->fileSize('README.md');
 
         $this->assertInstanceOf(FileAttributes::class, $size);
-        $this->assertEquals($size->fileSize(), 37);
+        $this->assertEquals($size->fileSize(), 38);
     }
 
     /**
@@ -418,7 +418,7 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_retrieve_mimetype()
     {
-        $metadata = $this->gitlabAdapter->mimeType('README.md');
+        $metadata = $this->GiteaAdapter->mimeType('README.md');
 
         $this->assertInstanceOf(FileAttributes::class, $metadata);
         $this->assertEquals($metadata->mimeType(), 'text/markdown');
@@ -429,10 +429,10 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_can_not_retrieve_lastModified()
     {
-        $lastModified = $this->gitlabAdapter->lastModified('README.md');
+        $lastModified = $this->GiteaAdapter->lastModified('README.md');
 
         $this->assertInstanceOf(FileAttributes::class, $lastModified);
-        $this->assertEquals($lastModified->lastModified(), 1606750652);
+        $this->assertEquals($lastModified->lastModified(), 1700236473);
     }
 
     /**
@@ -442,7 +442,7 @@ class GitlabAdapterTest extends TestCase
     {
         $this->expectException(UnableToSetVisibility::class);
 
-        $this->gitlabAdapter->visibility('README.md');
+        $this->GiteaAdapter->visibility('README.md');
     }
 
     /**
@@ -452,7 +452,7 @@ class GitlabAdapterTest extends TestCase
     {
         $this->expectException(UnableToSetVisibility::class);
 
-        $this->gitlabAdapter->setVisibility('README.md', 0777);
+        $this->GiteaAdapter->setVisibility('README.md', 0777);
     }
 
     /**
@@ -461,9 +461,9 @@ class GitlabAdapterTest extends TestCase
     public function it_can_check_directory_if_exists()
     {
         $dir = 'test-dir/test-dir2/test-dir3';
-        $this->gitlabAdapter->createDirectory($dir, new Config());
-        $this->assertTrue($this->gitlabAdapter->directoryExists($dir));
-        $this->gitlabAdapter->deleteDirectory($dir);
+        $this->GiteaAdapter->createDirectory($dir, new Config());
+        $this->assertTrue($this->GiteaAdapter->directoryExists($dir));
+        $this->GiteaAdapter->deleteDirectory($dir);
     }
 
     /**
@@ -471,20 +471,20 @@ class GitlabAdapterTest extends TestCase
      */
     public function it_cannot_check_if_directory_exists()
     {
-        $this->assertFalse($this->gitlabAdapter->directoryExists('test_non_existent_dir'));
+        $this->assertFalse($this->GiteaAdapter->directoryExists('test_non_existent_dir'));
     }
     
     private function setInvalidToken()
     {
-        $client = $this->gitlabAdapter->getClient();
+        $client = $this->GiteaAdapter->getClient();
         $client->setPersonalAccessToken('123');
-        $this->gitlabAdapter->setClient($client);
+        $this->GiteaAdapter->setClient($client);
     }
     
     private function setInvalidProjectId()
     {
-        $client = $this->gitlabAdapter->getClient();
-        $client->setProjectId('123');
-        $this->gitlabAdapter->setClient($client);
+        $client = $this->GiteaAdapter->getClient();
+        $client->setRepository('123');
+        $this->GiteaAdapter->setClient($client);
     }
 }

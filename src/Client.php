@@ -1,41 +1,51 @@
 <?php
 
-namespace RoyVoetman\FlysystemGitlab;
+namespace InfernalMedia\FlysystemGitea;
 
 use GuzzleHttp\Client as HttpClient;
+use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
+use GuzzleHttp\RequestOptions;
 use InvalidArgumentException;
+use OwenVoke\Gitea\Client as GiteaClient;
 use Psr\Http\Message\StreamInterface;
 
 /**
- * Class GitlabAdapter
+ * Class GiteaAdapter
  *
- * @package RoyVoetman\FlysystemGitlab
+ * @package InfernalMedia\FlysystemGitea
  */
 class Client
 {
-    const VERSION_URI = "/api/v4";
-    
+    const VERSION_URI = "/api/v1";
+
     /**
      * @var ?string
      */
     protected $personalAccessToken;
-    
+
     /**
      * @var string
      */
-    protected $projectId;
-    
+    protected $username;
+
+    /**
+     * @var string
+     */
+    protected $repository;
+
     /**
      * @var string
      */
     protected $branch;
-    
+
     /**
      * @var string
      */
     protected $baseUrl;
-    
+
     /**
      * Client constructor.
      *
@@ -44,14 +54,15 @@ class Client
      * @param  string  $baseUrl
      * @param  string|null  $personalAccessToken
      */
-    public function __construct(string $projectId, string $branch, string $baseUrl, ?string $personalAccessToken = null)
+    public function __construct(string $username, string $repository, string $branch, string $baseUrl, ?string $personalAccessToken = null)
     {
-        $this->projectId = $projectId;
+        $this->username = $username;
+        $this->repository = $repository;
         $this->branch = $branch;
         $this->baseUrl = $baseUrl;
         $this->personalAccessToken = $personalAccessToken;
     }
-    
+
     /**
      * @param $path
      *
@@ -61,12 +72,12 @@ class Client
     public function readRaw(string $path): string
     {
         $path = urlencode($path);
-    
-        $response = $this->request('GET', "files/$path/raw");
-    
+
+        $response = $this->request('GET', "raw/$path");
+
         return $this->responseContents($response, false);
     }
-    
+
     /**
      * @param $path
      *
@@ -75,34 +86,10 @@ class Client
      */
     public function read($path)
     {
-        $path = urlencode($path);
+        $response = $this->request('GET', "contents/$path");
+        $body = $response->getBody()->getContents();
 
-        $response = $this->request('HEAD', "files/$path");
-
-        $headers = $response->getHeaders();
-        $headers = array_filter(
-            $headers,
-            fn($key) => substr($key, 0, 9) == 'X-Gitlab-',
-            ARRAY_FILTER_USE_KEY
-        );
-
-        $keys = array_keys($headers);
-        $values = array_values($headers);
-
-        array_walk(
-            $keys,
-            function(&$key) {
-                $key = substr($key, 9);
-                $key = strtolower($key);
-                $key = preg_replace_callback(
-                    '/[-_]+(.)?/i',
-                    fn($matches) => strtoupper($matches[ 1 ]),
-                    $key
-                );
-            }
-        );
-
-        return array_combine($keys, $values);
+        return json_decode($body, true);
     }
 
     /**
@@ -115,26 +102,24 @@ class Client
     {
         $path = urlencode($path);
 
-        $response = $this->request('GET', "files/$path/raw");
+        $response = $this->request('GET', "raw/$path");
 
         return $response->getBody()->detach();
     }
-    
+
     /**
-     * @param $path
+     * @param $sha
      *
      * @return mixed|string
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function blame($path)
+    public function blame($sha)
     {
-        $path = urlencode($path);
-        
-        $response = $this->request('GET', "files/$path/blame");
-        
+        $response = $this->request('GET', "/git/commits/$sha");
+
         return $this->responseContents($response);
     }
-    
+
     /**
      * @param  string  $path
      * @param  string  $contents
@@ -147,17 +132,29 @@ class Client
     public function upload(string $path, string $contents, string $commitMessage, $override = false): array
     {
         $path = urlencode($path);
-    
+
         $method = $override ? 'PUT' : 'POST';
-    
-        $response = $this->request($method, "files/$path", [
-            'content'        => $contents,
-            'commit_message' => $commitMessage
-        ]);
-        
+        $payload = [
+            'content' => base64_encode($contents),
+            'message' => $commitMessage,
+            'signoff' => false,
+        ];
+
+        if ($override) {
+            try {
+                $existingFile = $this->read($path);
+                if ($existingFile) {
+                    $payload['sha'] = $existingFile['sha'];
+                }
+            } catch (GuzzleException $e) {
+            }
+        }
+
+        $response = $this->request($method, "contents/$path", $payload);
+
         return $this->responseContents($response);
     }
-    
+
     /**
      * @param  string  $path
      * @param $resource
@@ -170,13 +167,15 @@ class Client
     public function uploadStream(string $path, $resource, string $commitMessage, $override = false): array
     {
         if (!is_resource($resource)) {
-            throw new InvalidArgumentException(sprintf('Argument must be a valid resource type. %s given.',
-                gettype($resource)));
+            throw new InvalidArgumentException(sprintf(
+                'Argument must be a valid resource type. %s given.',
+                gettype($resource)
+            ));
         }
-    
+
         return $this->upload($path, stream_get_contents($resource), $commitMessage, $override);
     }
-    
+
     /**
      * @param  string  $path
      * @param  string  $commitMessage
@@ -186,12 +185,18 @@ class Client
     public function delete(string $path, string $commitMessage)
     {
         $path = urlencode($path);
-        
-        $this->request('DELETE', "files/$path", [
-            'commit_message' => $commitMessage
-        ]);
+
+        $payload = ['message' => $commitMessage];
+
+        $existingFile = $this->read($path);
+
+        if ($existingFile) {
+            $payload['sha'] = $existingFile['sha'];
+        }
+
+        $this->request('DELETE', "contents/$path", $payload);
     }
-    
+
     /**
      * @param  string|null  $directory
      * @param  bool  $recursive
@@ -204,21 +209,37 @@ class Client
         if ($directory === '/' || $directory === '') {
             $directory = null;
         }
-        
+
+        if (!empty($directory)) {
+            $recursive = true;
+        }
+
         $page = 1;
-        
+
         do {
-            $response = $this->request('GET', 'tree', [
-                'path'      => $directory,
-                'recursive' => $recursive,
-                'per_page'  => 100,
-                'page'      => $page++
+            $response = $this->request('GET', 'git/trees/' . $this->getBranch(), [], [
+                'query' => [
+                    'recursive' => $recursive,
+                    'limit'  => 100,
+                    'page'      => $page++
+                ]
             ]);
-    
-            yield $this->responseContents($response);
+
+            $treeResponse = $this->responseContents($response)['tree'];
+
+            if (!empty($directory)) {
+                foreach ($treeResponse as $i => $item) {
+                    $currentFilename = $item['path'];
+                    if (!str_starts_with($currentFilename, $directory) || $currentFilename === $directory) {
+                        unset($treeResponse[$i]);
+                    }
+                }
+            }
+
+            yield array_values($treeResponse);
         } while ($this->responseHasNextPage($response));
     }
-    
+
     /**
      * @return string
      */
@@ -226,7 +247,7 @@ class Client
     {
         return $this->personalAccessToken;
     }
-    
+
     /**
      * @param  string  $personalAccessToken
      */
@@ -234,23 +255,39 @@ class Client
     {
         $this->personalAccessToken = $personalAccessToken;
     }
-    
+
     /**
      * @return string
      */
-    public function getProjectId(): string
+    public function getUsername(): string
     {
-        return $this->projectId;
+        return $this->username;
     }
-    
+
     /**
-     * @param  string  $projectId
+     * @param  string  $username
      */
-    public function setProjectId(string $projectId)
+    public function setUsername(string $username)
     {
-        $this->projectId = $projectId;
+        $this->username = $username;
     }
-    
+
+    /**
+     * @return string
+     */
+    public function getRepository(): string
+    {
+        return $this->repository;
+    }
+
+    /**
+     * @param  string  $repository
+     */
+    public function setRepository(string $repository)
+    {
+        $this->repository = $repository;
+    }
+
     /**
      * @return string
      */
@@ -258,7 +295,7 @@ class Client
     {
         return $this->branch;
     }
-    
+
     /**
      * @param  string  $branch
      */
@@ -266,7 +303,7 @@ class Client
     {
         $this->branch = $branch;
     }
-    
+
     /**
      * @param  string  $method
      * @param  string  $uri
@@ -275,16 +312,47 @@ class Client
      * @return \GuzzleHttp\Psr7\Response
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    private function request(string $method, string $uri, array $params = []): Response
+    private function request(string $method, string $uri, array $body = [], array $params = []): Response
     {
-        $uri = !in_array($method, ['POST', 'PUT', 'DELETE']) ? $this->buildUri($uri, $params) : $this->buildUri($uri);
-        $params = in_array($method, ['POST', 'PUT', 'DELETE']) ? ['form_params' => array_merge(['branch' => $this->branch], $params)] : [];
+        $queryParams = ['branch' => $this->branch];
+        if (array_key_exists('query', $params)) {
+            $queryParams = array_merge($queryParams, $params['query']);
+        }
 
-        $client = new HttpClient(['headers' => ['PRIVATE-TOKEN' => $this->personalAccessToken]]);
+        // $uri = !in_array($method, ['POST', 'PUT', 'DELETE']) ? $this->buildUri($uri, $params['query']) : $this->buildUri($uri);
+        $uri = $this->buildUri($uri, $queryParams);
 
-        return $client->request($method, $uri, $params);
+        // $params = in_array($method, ['POST', 'PUT', 'DELETE']) ? array_merge(['branch' => $this->branch], $params) : [];
+        $params['debug'] = false;
+        if (in_array($method, ['POST', 'PUT', 'DELETE']) && !empty($body)) {
+            $params[RequestOptions::JSON] = $body;
+        }
+        // $client = new GiteaClient(null, null, $this->baseUrl);
+        // $client->authenticate($this->personalAccessToken, null, GiteaClient::AUTH_ACCESS_TOKEN);
+
+        // return $client->getHttpClient()->send($method, $uri, $params);
+
+        $container = [];
+        $history = Middleware::history($container);
+
+        $stack = HandlerStack::create();
+        // Add the history middleware to the handler stack.
+        $stack->push($history);
+
+        $client = new HttpClient([
+            'handler' => $stack,
+            'headers' => ['Authorization' => 'Bearer ' . $this->personalAccessToken]
+        ]);
+
+        $response = $client->request($method, $uri, $params);
+
+        foreach ($container as $transaction) {
+            // echo (string) $transaction['request']->getBody(); // Hello World
+        }
+
+        return $response;
     }
-    
+
     /**
      * @param  string  $uri
      * @param $params
@@ -294,22 +362,24 @@ class Client
     private function buildUri(string $uri, array $params = []): string
     {
         $params = array_merge(['ref' => $this->branch], $params);
-        
+
         $params = array_map('urlencode', $params);
-        
-        if(isset($params['path'])) {
+
+        if (isset($params['path'])) {
             $params['path'] = urldecode($params['path']);
         }
-        
+
         $params = http_build_query($params);
-        
+
         $params = !empty($params) ? "?$params" : null;
-    
-        $baseUrl = rtrim($this->baseUrl, '/').self::VERSION_URI;
-    
-        return "{$baseUrl}/projects/{$this->projectId}/repository/{$uri}{$params}";
+
+        $baseUrl = rtrim($this->baseUrl, '/') . self::VERSION_URI;
+
+        $endpoint = $params['endpoint'] ?? 'repos';
+
+        return "{$baseUrl}/$endpoint/{$this->username}/{$this->repository}/{$uri}{$params}";
     }
-    
+
     /**
      * @param  \GuzzleHttp\Psr7\Response  $response
      * @param  bool  $json
@@ -320,10 +390,10 @@ class Client
     {
         $contents = $response->getBody()
             ->getContents();
-        
+
         return ($json) ? json_decode($contents, true) : $contents;
     }
-    
+
     /**
      * @param  \GuzzleHttp\Psr7\Response  $response
      *
@@ -331,10 +401,10 @@ class Client
      */
     private function responseHasNextPage(Response $response)
     {
-        if ($response->hasHeader('X-Next-Page')) {
-            return !empty($response->getHeader('X-Next-Page')[0] ?? "");
+        if ($response->hasHeader('X-Hasmore')) {
+            return $response->getHeader('X-Hasmore') === 'true';
         }
-        
+
         return false;
     }
 }
