@@ -1,6 +1,10 @@
 MIT License
 
-Copyright (c) 2019 Roy Voetman
+Copyright (c) 2023 Infernal Média Inc.
+
+Copyright for portions of project flysystem-gitea-storage are held by Roy
+Voetman, 2019, as part of project flysystem-gitlab-storage. All other copyright
+for project flysystem-gitea-storage are held by Infernal Média Inc, 2023.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
